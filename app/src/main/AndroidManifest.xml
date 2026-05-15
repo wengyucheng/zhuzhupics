@@ -19,7 +19,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Pics">
         <activity
-            android:name=".MainActivity"
+            android:name=".YearMonthActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.Pics">
@@ -28,6 +28,21 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.Pics"
+            android:screenOrientation="landscape">
+        </activity>
+
+        <activity
+            android:name=".DetailActivity"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.Pics">
         </activity>
 
         <provider

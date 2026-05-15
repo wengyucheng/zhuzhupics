@@ -1,20 +1,22 @@
 package com.wyc.pics.ui.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
-import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wyc.pics.utils.ImageUtils
@@ -24,37 +26,59 @@ import java.time.YearMonth
 @Composable
 fun CalendarView(
     modifier: Modifier = Modifier,
-    onDayClick: (LocalDate) -> Unit = {}
+    initialMonth: YearMonth = YearMonth.now(),
+    onDayClick: (LocalDate) -> Unit = {},
+    onBack: () -> Unit = {}
 ) {
-    var currentMonth by remember { mutableStateOf(YearMonth.now()) }
+    var currentMonth by remember { mutableStateOf(initialMonth) }
     var showDatePicker by remember { mutableStateOf(false) }
     
     val weekDays = listOf("日", "一", "二", "三", "四", "五", "六")
     
     val handlePrevMonth = { currentMonth = currentMonth.minusMonths(1) }
     val handleNextMonth = { currentMonth = currentMonth.plusMonths(1) }
+
+    val configuration = LocalConfiguration.current
+    val screenWidth = configuration.screenWidthDp.dp
+    val screenHeight = configuration.screenHeightDp.dp
+    
+    val navigationBarWidth = 60.dp
+    val headerHeight = 44.dp
+    val weekRowHeight = 32.dp
+    
+    val availableHeight = screenHeight - headerHeight - weekRowHeight
+    val cellSize = availableHeight / 5
+    
+    val firstDayOfWeek = currentMonth.atDay(1).dayOfWeek.value % 7
+    val adjustedWeekDays = weekDays.toMutableList().apply {
+        repeat(firstDayOfWeek) {
+            add(removeAt(0))
+        }
+    }
     
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(end = navigationBarWidth)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = Icons.Default.KeyboardArrowLeft,
-                contentDescription = "上一月",
+                contentDescription = "返回",
                 modifier = Modifier
-                    .size(32.dp)
-                    .clickable { handlePrevMonth() }
+                    .size(28.dp)
+                    .clickable { onBack() }
             )
             
             Text(
                 text = "${currentMonth.year}年${currentMonth.monthValue}月",
-                fontSize = 20.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.clickable { showDatePicker = true }
@@ -64,17 +88,15 @@ fun CalendarView(
                 imageVector = Icons.Default.KeyboardArrowRight,
                 contentDescription = "下一月",
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(28.dp)
                     .clickable { handleNextMonth() }
             )
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
-        
         Row(
             modifier = Modifier.fillMaxWidth(),
         ) {
-            weekDays.forEach { day ->
+            adjustedWeekDays.forEach { day ->
                 Box(
                     modifier = Modifier.weight(1f),
                     contentAlignment = Alignment.Center
@@ -89,14 +111,14 @@ fun CalendarView(
             }
         }
         
-        Spacer(modifier = Modifier.height(8.dp))
-        
         LazyVerticalGrid(
             columns = GridCells.Fixed(7),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth(),
+            userScrollEnabled = false,
             content = {
-                itemsIndexed(generateCalendarData(currentMonth)) { index, dayData ->
-                    val dayOfMonth = index - currentMonth.atDay(1).dayOfWeek.value % 7 + 1
+                itemsIndexed(generateCalendarDataFixed(currentMonth)) { index, dayData ->
+                    val dayOfMonth = if (dayData.isCurrentMonth) index + 1 else 0
                     val date = if (dayData.isCurrentMonth) {
                         currentMonth.atDay(dayOfMonth)
                     } else {
@@ -104,6 +126,7 @@ fun CalendarView(
                     }
                     CalendarDay(
                         dayData = dayData,
+                        size = cellSize,
                         onClick = {
                             date?.let { onDayClick(it) }
                         }
@@ -220,6 +243,23 @@ fun generateCalendarData(yearMonth: YearMonth): List<CalendarDayData> {
     for (i in 0 until firstDayOfWeek) {
         data.add(CalendarDayData(day = 0, imagePath = null, isCurrentMonth = false))
     }
+    
+    for (day in 1..daysInMonth) {
+        val date = yearMonth.atDay(day)
+        val imagePath = getFirstImageForDate(date)
+        data.add(CalendarDayData(day = day, imagePath = imagePath, isCurrentMonth = true))
+    }
+    
+    while (data.size < 42) {
+        data.add(CalendarDayData(day = 0, imagePath = null, isCurrentMonth = false))
+    }
+    
+    return data
+}
+
+fun generateCalendarDataFixed(yearMonth: YearMonth): List<CalendarDayData> {
+    val data = mutableListOf<CalendarDayData>()
+    val daysInMonth = yearMonth.lengthOfMonth()
     
     for (day in 1..daysInMonth) {
         val date = yearMonth.atDay(day)

@@ -20,13 +20,15 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.wyc.pics.ui.components.CalendarView
 import com.wyc.pics.ui.screens.DetailScreen
+import com.wyc.pics.ui.screens.YearMonthScreen
 import com.wyc.pics.ui.theme.PicsTheme
 import com.wyc.pics.utils.ImageUtils
 import java.io.File
 import java.time.LocalDate
+import java.time.YearMonth
 
 sealed class Screen {
-    object Calendar : Screen()
+    data class Calendar(val yearMonth: YearMonth) : Screen()
     data class Detail(val date: LocalDate) : Screen()
 }
 
@@ -65,13 +67,16 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        val year = intent.getIntExtra("year", YearMonth.now().year)
+        val month = intent.getIntExtra("month", YearMonth.now().monthValue)
+        val initialYearMonth = YearMonth.of(year, month)
+
         setContent {
             PicsTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    AppContent(
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                AppContent(
+                    modifier = Modifier.fillMaxSize(),
+                    initialYearMonth = initialYearMonth
+                )
             }
         }
     }
@@ -160,35 +165,21 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AppContent(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    initialYearMonth: YearMonth
 ) {
-    var currentScreen by remember { mutableStateOf<Screen>(Screen.Calendar) }
     val activity = LocalContext.current as MainActivity
 
-    when (currentScreen) {
-        is Screen.Calendar -> {
-            CalendarView(
-                modifier = modifier.fillMaxSize(),
-                onDayClick = { date ->
-                    currentScreen = Screen.Detail(date)
-                }
-            )
+    CalendarView(
+        modifier = modifier.fillMaxSize(),
+        initialMonth = initialYearMonth,
+        onDayClick = { date ->
+            DetailActivity.start(activity, date)
+        },
+        onBack = {
+            val intent = Intent(activity, YearMonthActivity::class.java)
+            activity.startActivity(intent)
+            activity.finish()
         }
-        is Screen.Detail -> {
-            val date = (currentScreen as Screen.Detail).date
-            DetailScreen(
-                date = date,
-                onBack = {
-                    currentScreen = Screen.Calendar
-                },
-                onAddPhoto = { takePhoto ->
-                    if (takePhoto) {
-                        activity.launchCamera(date)
-                    } else {
-                        activity.launchGallery(date)
-                    }
-                }
-            )
-        }
-    }
+    )
 }
