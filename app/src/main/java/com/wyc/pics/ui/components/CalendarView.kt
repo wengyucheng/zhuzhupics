@@ -65,31 +65,15 @@ fun CalendarView(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Default.KeyboardArrowLeft,
-                contentDescription = "返回",
-                modifier = Modifier
-                    .size(28.dp)
-                    .clickable { onBack() }
-            )
-            
             Text(
                 text = "${currentMonth.year}年${currentMonth.monthValue}月",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.clickable { showDatePicker = true }
-            )
-            
-            Icon(
-                imageVector = Icons.Default.KeyboardArrowRight,
-                contentDescription = "下一月",
-                modifier = Modifier
-                    .size(28.dp)
-                    .clickable { handleNextMonth() }
             )
         }
         
@@ -241,17 +225,17 @@ fun generateCalendarData(yearMonth: YearMonth): List<CalendarDayData> {
     val firstDayOfWeek = yearMonth.atDay(1).dayOfWeek.value % 7
     
     for (i in 0 until firstDayOfWeek) {
-        data.add(CalendarDayData(day = 0, imagePath = null, isCurrentMonth = false))
+        data.add(CalendarDayData(day = 0, imagePaths = emptyList(), isCurrentMonth = false))
     }
     
     for (day in 1..daysInMonth) {
         val date = yearMonth.atDay(day)
-        val imagePath = getFirstImageForDate(date)
-        data.add(CalendarDayData(day = day, imagePath = imagePath, isCurrentMonth = true))
+        val imagePaths = getImagesForDate(date)
+        data.add(CalendarDayData(day = day, imagePaths = imagePaths, isCurrentMonth = true))
     }
     
     while (data.size < 42) {
-        data.add(CalendarDayData(day = 0, imagePath = null, isCurrentMonth = false))
+        data.add(CalendarDayData(day = 0, imagePaths = emptyList(), isCurrentMonth = false))
     }
     
     return data
@@ -263,12 +247,12 @@ fun generateCalendarDataFixed(yearMonth: YearMonth): List<CalendarDayData> {
     
     for (day in 1..daysInMonth) {
         val date = yearMonth.atDay(day)
-        val imagePath = getFirstImageForDate(date)
-        data.add(CalendarDayData(day = day, imagePath = imagePath, isCurrentMonth = true))
+        val imagePaths = getImagesForDate(date)
+        data.add(CalendarDayData(day = day, imagePaths = imagePaths, isCurrentMonth = true))
     }
     
     while (data.size < 42) {
-        data.add(CalendarDayData(day = 0, imagePath = null, isCurrentMonth = false))
+        data.add(CalendarDayData(day = 0, imagePaths = emptyList(), isCurrentMonth = false))
     }
     
     return data
@@ -281,6 +265,14 @@ fun getFirstImageForDate(date: LocalDate): String? {
         return files?.firstOrNull()?.absolutePath
     }
     return null
+}
+
+fun getImagesForDate(date: LocalDate): List<String> {
+    val dir = ImageUtils.getImageDirectory(date)
+    if (dir.exists()) {
+        return dir.listFiles()?.filter { it.extension.equals("png", ignoreCase = true) }?.map { it.absolutePath } ?: emptyList()
+    }
+    return emptyList()
 }
 
 @Preview(showBackground = true)

@@ -27,6 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -34,6 +36,7 @@ import coil.compose.rememberImagePainter
 import com.wyc.pics.ui.components.ImagePreview
 import com.wyc.pics.utils.ImageUtils
 import android.os.Environment
+import androidx.compose.ui.input.pointer.pointerInput
 import java.io.File
 import java.time.LocalDate
 
@@ -244,6 +247,42 @@ class DetailActivity : ComponentActivity() {
     }
 }
 
+@Composable
+fun DragDropImageGrid(
+    images: MutableList<String>,
+    onImageClick: (Int) -> Unit,
+    onOrderChanged: (List<String>) -> Unit
+) {
+    Column {
+        for (rowIndex in images.indices step 4) {
+            Row(modifier = Modifier.fillMaxWidth()) {
+                for (colIndex in 0 until 4) {
+                    val itemIndex = rowIndex + colIndex
+                    if (itemIndex < images.size) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .aspectRatio(1f)
+                                .clickable {
+                                    onImageClick(itemIndex)
+                                }
+                        ) {
+                            Image(
+                                painter = rememberImagePainter(images[itemIndex]),
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetailScreenContent(date: LocalDate) {
@@ -323,29 +362,11 @@ fun DetailScreenContent(date: LocalDate) {
                         Text(text = "暂无照片")
                     }
                 } else {
-                    Column {
-                        for (rowIndex in images.indices step 4) {
-                            Row(modifier = Modifier.fillMaxWidth()) {
-                                for (colIndex in 0 until 4) {
-                                    val itemIndex = rowIndex + colIndex
-                                    if (itemIndex < images.size) {
-                                        Image(
-                                            painter = rememberImagePainter(images[itemIndex]),
-                                            contentDescription = null,
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .aspectRatio(1f)
-                                                .clickable {
-                                                    previewIndex.value = itemIndex
-                                                }
-                                        )
-                                    } else {
-                                        Spacer(modifier = Modifier.weight(1f))
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    DragDropImageGrid(
+                        images = images,
+                        onImageClick = { previewIndex.value = it },
+                        onOrderChanged = { saveImageOrder(it) }
+                    )
                 }
                 
                 BasicTextField(
@@ -422,10 +443,42 @@ private fun loadImagesForDate(context: android.content.Context, date: LocalDate,
     images.clear()
     val dir = ImageUtils.getImageDirectory(date)
     if (dir.exists()) {
-        dir.listFiles()?.filter { it.extension.equals("png", ignoreCase = true) }?.forEach {
+        val sortedFiles = dir.listFiles()?.filter { it.extension.equals("png", ignoreCase = true) }?.sortedWith(
+            compareBy { extractOrderFromFileName(it.name) }
+        )
+        sortedFiles?.forEach {
             images.add(it.absolutePath)
         }
     }
+}
+
+private fun extractOrderFromFileName(fileName: String): Int {
+    val match = Regex("^(\\d{3})_").find(fileName)
+    return match?.groupValues?.get(1)?.toIntOrNull() ?: 999
+}
+
+private fun removeOrderPrefix(fileName: String): String {
+    return Regex("^\\d{3}_").replace(fileName, "")
+}
+
+private fun saveImageOrder(images: List<String>) {
+    images.forEachIndexed { index, path ->
+        val file = File(path)
+        val originalName = removeOrderPrefix(file.name)
+        val newName = String.format("%03d_%s", index, originalName)
+        val newFile = File(file.parent, newName)
+        if (file.name != newName) {
+            file.renameTo(newFile)
+        }
+    }
+}
+
+private fun calculateTargetIndex(x: Float, y: Float, images: List<String>, screenWidth: Float, screenHeight: Float): Int {
+    val columnWidth = screenWidth / 4
+    val rowHeight = columnWidth
+    val column = (x / columnWidth).toInt().coerceIn(0, 3)
+    val row = (y / rowHeight).toInt()
+    return row * 4 + column
 }
 
 private fun saveBookmark(context: android.content.Context, date: LocalDate, text: String) {
